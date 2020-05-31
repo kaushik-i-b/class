@@ -7,7 +7,7 @@ An electron app similar to Google Classroom.
 
 - Clone Repository
 ```
-git clone https://github.com/starkblaze01/classroom.git
+git clone https://github.com/kaushik-i-b/class.git
 cd classroom
 ```
 
