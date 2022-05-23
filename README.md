@@ -1,7 +1,6 @@
 # Classroom
 An electron app similar to Google Classroom.
 
-#### This repository is the cloned version. You can find the main repository [here](https://github.com/PiyushPawar17/classroom).
 
 ### Development
 
