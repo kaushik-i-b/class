@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Cycle — GTM Engineering OS with enrichment, heat scoring, outreach, and sprint analytics (Qwen-powered)",
+  "description": "Cycle — scrape leads, AI email/LinkedIn outreach, auto follow-ups",
   "engines": {
     "node": ">=20"
   },
@@ -21,6 +21,7 @@
     "cheerio": "^1.0.0",
     "cors": "^2.8.5",
     "express": "^4.21.2",
+    "nodemailer": "^6.10.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.30.1",

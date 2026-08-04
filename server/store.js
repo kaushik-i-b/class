@@ -7,17 +7,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DB_PATH = path.join(__dirname, 'data', 'db.json');
 
 const EMPTY_DB = {
-  accounts: [],
-  contacts: [],
-  sequences: [],
   campaigns: [],
-  touches: [],
-  sprints: [],
-  experiments: [],
-  events: [],
-  scores: [],
-  action_queue: [],
-  meta: { seededAt: null },
+  leads: [],
+  messages: [],
+  meta: { version: 2, seededAt: null },
 };
 
 function ensureDb() {
@@ -31,7 +24,6 @@ function ensureDb() {
 export function readDb() {
   ensureDb();
   const db = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
-  // Migrate older demo DBs
   for (const key of Object.keys(EMPTY_DB)) {
     if (db[key] == null) db[key] = EMPTY_DB[key];
   }
@@ -56,4 +48,10 @@ export function id() {
 
 export function now() {
   return new Date().toISOString();
+}
+
+export function daysFromNow(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString();
 }

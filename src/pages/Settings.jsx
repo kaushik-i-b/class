@@ -17,20 +17,20 @@ export default function Settings() {
       <div className="page-head">
         <div>
           <h1>Settings</h1>
-          <p>Connect Qwen for personalized outreach drafts. Scraping/enrichment works without it.</p>
+          <p>Connect Qwen for better copy. Configure SMTP on the server for real email.</p>
         </div>
       </div>
 
-      <div className="grid-2">
+      <div className="grid grid-2">
         <section className="card">
-          <h2>Qwen / Hugging Face</h2>
+          <h2>Qwen (AI copy)</h2>
           <p className="muted">
-            Model: {health?.model || 'Qwen/Qwen2.5-7B-Instruct'} · server token{' '}
-            {health?.hasServerToken ? 'present' : 'missing'}
+            Without a token, Cycle still writes solid template messages. With a Hugging Face token,
+            messages are personalized by Qwen.
           </p>
           <form
-            className="form-grid"
-            style={{ marginTop: '1rem' }}
+            className="grid"
+            style={{ marginTop: '0.9rem' }}
             onSubmit={(e) => {
               e.preventDefault();
               setToken(draft.trim());
@@ -38,7 +38,7 @@ export default function Settings() {
             }}
           >
             <label className="field">
-              HF token
+              Hugging Face token
               <input
                 type="password"
                 value={draft}
@@ -47,33 +47,29 @@ export default function Settings() {
               />
             </label>
             <button className="btn btn-primary" type="submit">
-              Save token
+              Save
             </button>
           </form>
           <p className="status ok">{status}</p>
-          <p className="muted">
-            Create a token with Inference Providers access at{' '}
-            <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noreferrer">
-              huggingface.co/settings/tokens
-            </a>
-            .
-          </p>
         </section>
 
         <section className="card">
-          <h2>Demo data</h2>
-          <p className="muted">Reset the local system-of-record seed for a clean walkthrough.</p>
-          <button
-            className="btn btn-ghost"
-            type="button"
-            style={{ marginTop: '1rem' }}
-            onClick={async () => {
-              await api.reseed();
-              setStatus('Demo data reseeded. Reload pages to refresh.');
-            }}
-          >
-            Reseed demo workspace
-          </button>
+          <h2>Email delivery</h2>
+          <p className="muted">
+            SMTP configured: <strong>{health?.smtpConfigured ? 'yes' : 'no'}</strong>
+          </p>
+          <pre className="msg" style={{ marginTop: '0.75rem' }}>
+{`SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USER=you@example.com
+SMTP_PASS=...
+SMTP_FROM=You <you@example.com>
+HF_TOKEN=hf_...`}
+          </pre>
+          <p className="muted" style={{ marginTop: '0.75rem' }}>
+            LinkedIn cannot be auto-sent without LinkedIn’s restricted APIs — Cycle drafts the
+            message, opens the profile, and schedules AI follow-ups after you confirm send.
+          </p>
         </section>
       </div>
     </div>

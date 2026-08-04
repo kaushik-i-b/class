@@ -1,51 +1,39 @@
-# Cycle — GTM Engineering OS
+# Cycle — Scrape leads, AI outreach, auto follow-up
 
-Implements the GTM Engineering product brief **and** the technical requirements architecture:
+Usable campaign tool:
 
-`CRM/SoR → Enrichment → Feature Store → Scoring Engine → Action Layer → Analytics`  
-(with a feedback loop from outcomes back into the feature store).
+1. **Create a campaign** (ICP + offer + email/LinkedIn)
+2. **Find leads** by scraping URLs or keyword search (emails + LinkedIn links)
+3. **AI writes** first-touch email + LinkedIn messages (Qwen when `HF_TOKEN` is set)
+4. **Auto follow-ups** on day 3 / 7 (configurable) until replied
+5. **Send**: real email via SMTP, LinkedIn via copy → open profile → confirm
 
-## Spec alignment
-
-| Requirement | Implementation |
-|---|---|
-| Identity resolution | `server/identity.js` — domain normalize + email/domain fuzzy match |
-| Enrichment contract + confidence | Field-level `confidence` / `last_verified_at`; waterfall scrape → heuristic |
-| Coverage gate (&lt;60%) | Scoring discounts/refuses; Action skips gated accounts |
-| Feature store | `events[]` timestamped facts → decayed features (`server/features.js`) |
-| Scoring v1 | Weighted linear model, 0–1 normalize, time decay, `scores[]` versioned rows |
-| Decoupling | Action reads **only** `scores` / enqueue payload — never raw signals |
-| Tier-transition triggers | Warm→Hot / Cold→Warm enqueue + 14-day cooldown |
-| Draft-for-review | Default campaign/queue mode |
-| score_at_send_time | Logged on every touch for attribution |
-| Experiment variants | First-class `variant_id` + hypothesis + segment |
-| KPI math | Speed-to-lead, coverage, heat→conversion (60d), sprint velocity, lift (directional flag) |
-
-**Intentionally stubbed for local MVP (integrate later):** live Salesforce/HubSpot CDC, Clearbit/ZoomInfo waterfall vendors, Outreach/Salesloft send APIs, learned ML scoring (step 7 in build sequencing).
-
-## Deploy (Render)
-
-One-click Blueprint:
-
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://dashboard.render.com/blueprint/new?repo=https://github.com/kaushik-i-b/class&branch=cursor/qwin-ai-web-scraper-d5a6)
-
-Or follow [DEPLOY_RENDER.md](./DEPLOY_RENDER.md).
-
-## Run locally
+## Run
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`. Optional `HF_TOKEN` for Qwen outreach personalization.
+Open `http://localhost:5173`.
 
-## Build sequencing (followed)
+## Real email (optional)
 
-1. Identity + SoR spine  
-2. Enrichment + coverage gating  
-3. Event/feature store  
-4. Scoring engine v1 (hand-weighted, decoupled)  
-5. Action layer draft-for-review  
-6. Analytics + experiment framework  
-7. Auto-send + learned model — **not enabled yet** (needs logged outcomes volume)
+```bash
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USER=you@example.com
+SMTP_PASS=secret
+SMTP_FROM=You <you@example.com>
+HF_TOKEN=hf_xxx
+```
+
+Without SMTP, emails are **simulated** (queued → marked sent) so you can still test the flow.
+
+## LinkedIn
+
+LinkedIn does not allow unattended auto-send from third-party apps without their partnership API. Cycle drafts AI messages, opens the profile, and schedules the next AI follow-up after you click **Mark LinkedIn sent**.
+
+## Render
+
+See `DEPLOY_RENDER.md` / `render.yaml`.

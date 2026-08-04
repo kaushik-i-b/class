@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 
-const STORAGE_KEY = 'cycle.hfToken';
+const KEY = 'cycle.hfToken';
 
 export function useHfToken() {
-  const [token, setTokenState] = useState(() => {
+  const [token, setToken] = useState(() => {
     try {
-      return localStorage.getItem(STORAGE_KEY) || '';
+      return localStorage.getItem(KEY) || '';
     } catch {
       return '';
     }
@@ -13,12 +13,12 @@ export function useHfToken() {
 
   useEffect(() => {
     try {
-      if (token) localStorage.setItem(STORAGE_KEY, token);
-      else localStorage.removeItem(STORAGE_KEY);
+      if (token) localStorage.setItem(KEY, token);
+      else localStorage.removeItem(KEY);
     } catch {
       /* ignore */
     }
   }, [token]);
 
-  return [token, setTokenState];
+  return [token, setToken];
 }

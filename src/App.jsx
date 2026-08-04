@@ -1,26 +1,23 @@
 import { NavLink, Route, Routes } from 'react-router-dom';
-import Dashboard from './pages/Dashboard.jsx';
-import Accounts from './pages/Accounts.jsx';
-import AccountDetail from './pages/AccountDetail.jsx';
-import Campaigns from './pages/Campaigns.jsx';
-import Sprints from './pages/Sprints.jsx';
+import Home from './pages/Home.jsx';
+import NewCampaign from './pages/NewCampaign.jsx';
+import CampaignDetail from './pages/CampaignDetail.jsx';
+import Queue from './pages/Queue.jsx';
 import Settings from './pages/Settings.jsx';
 
 const links = [
-  ['/', 'Dashboard'],
-  ['/accounts', 'Accounts'],
-  ['/campaigns', 'Campaigns'],
-  ['/sprints', 'Sprints'],
+  ['/', 'Campaigns'],
+  ['/queue', 'Queue'],
   ['/settings', 'Settings'],
 ];
 
 export default function App() {
   return (
-    <div className="app">
-      <aside className="sidebar">
+    <div className="shell">
+      <aside className="side">
         <div className="brand">
           <strong>Cycle</strong>
-          <span>GTM Engineering OS</span>
+          <span>Scrape → message → follow up</span>
         </div>
         <nav className="nav">
           {links.map(([to, label]) => (
@@ -28,18 +25,15 @@ export default function App() {
               {label}
             </NavLink>
           ))}
+          <NavLink to="/campaigns/new">New campaign</NavLink>
         </nav>
-        <div className="sidebar-foot">
-          Enrichment before automation. Score before triggers. Measure every two weeks.
-        </div>
       </aside>
       <main className="main">
         <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/accounts" element={<Accounts />} />
-          <Route path="/accounts/:id" element={<AccountDetail />} />
-          <Route path="/campaigns" element={<Campaigns />} />
-          <Route path="/sprints" element={<Sprints />} />
+          <Route path="/" element={<Home />} />
+          <Route path="/campaigns/new" element={<NewCampaign />} />
+          <Route path="/campaigns/:id" element={<CampaignDetail />} />
+          <Route path="/queue" element={<Queue />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>
       </main>

@@ -2,7 +2,6 @@ async function parseJson(response) {
   const data = await response.json().catch(() => ({}));
   if (!response.ok || data.ok === false) {
     const error = new Error(data.error || `Request failed (${response.status})`);
-    error.code = data.code;
     error.status = response.status;
     throw error;
   }
@@ -17,75 +16,56 @@ function headers(token) {
 
 export const api = {
   health: () => fetch('/api/health').then(parseJson),
-  dashboard: () => fetch('/api/dashboard').then(parseJson),
-  accounts: () => fetch('/api/accounts').then(parseJson),
-  account: (id) => fetch(`/api/accounts/${id}`).then(parseJson),
-  createAccount: (body) =>
-    fetch('/api/accounts', { method: 'POST', headers: headers(), body: JSON.stringify(body) }).then(
-      parseJson
-    ),
-  updateAccount: (id, body) =>
-    fetch(`/api/accounts/${id}`, {
-      method: 'PATCH',
-      headers: headers(),
-      body: JSON.stringify(body),
-    }).then(parseJson),
-  enrichAccount: (id) =>
-    fetch(`/api/accounts/${id}/enrich`, { method: 'POST', headers: headers() }).then(parseJson),
-  addEvent: (id, body) =>
-    fetch(`/api/accounts/${id}/events`, {
-      method: 'POST',
-      headers: headers(),
-      body: JSON.stringify(body),
-    }).then(parseJson),
-  sequences: () => fetch('/api/sequences').then(parseJson),
-  updateSequence: (id, body) =>
-    fetch(`/api/sequences/${id}`, {
-      method: 'PATCH',
-      headers: headers(),
-      body: JSON.stringify(body),
-    }).then(parseJson),
+  overview: () => fetch('/api/overview').then(parseJson),
   campaigns: () => fetch('/api/campaigns').then(parseJson),
+  campaign: (id) => fetch(`/api/campaigns/${id}`).then(parseJson),
   createCampaign: (body) =>
     fetch('/api/campaigns', { method: 'POST', headers: headers(), body: JSON.stringify(body) }).then(
       parseJson
     ),
-  draftCampaign: (id, body = {}, token) =>
-    fetch(`/api/campaigns/${id}/draft`, {
+  findLeads: (id, body) =>
+    fetch(`/api/campaigns/${id}/find-leads`, {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify(body),
+    }).then(parseJson),
+  addLead: (id, body) =>
+    fetch(`/api/campaigns/${id}/leads`, {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify(body),
+    }).then(parseJson),
+  enqueue: (id, body, token) =>
+    fetch(`/api/campaigns/${id}/enqueue`, {
       method: 'POST',
       headers: headers(token),
       body: JSON.stringify(body),
     }).then(parseJson),
-  sendTouch: (id) =>
-    fetch(`/api/touches/${id}/send`, { method: 'POST', headers: headers() }).then(parseJson),
-  touchOutcome: (id, status) =>
-    fetch(`/api/touches/${id}/outcome`, {
+  queue: () => fetch('/api/queue').then(parseJson),
+  processDue: (token) =>
+    fetch('/api/messages/process-due', {
       method: 'POST',
-      headers: headers(),
-      body: JSON.stringify({ status }),
+      headers: headers(token),
+      body: '{}',
     }).then(parseJson),
-  touches: () => fetch('/api/touches').then(parseJson),
-  sprints: () => fetch('/api/sprints').then(parseJson),
-  createSprint: (body) =>
-    fetch('/api/sprints', { method: 'POST', headers: headers(), body: JSON.stringify(body) }).then(
-      parseJson
-    ),
-  createExperiment: (sprintId, body) =>
-    fetch(`/api/sprints/${sprintId}/experiments`, {
+  regenerate: (id, token) =>
+    fetch(`/api/messages/${id}/regenerate`, {
       method: 'POST',
-      headers: headers(),
-      body: JSON.stringify(body),
+      headers: headers(token),
+      body: '{}',
     }).then(parseJson),
-  updateExperiment: (id, body) =>
-    fetch(`/api/experiments/${id}`, {
+  patchMessage: (id, body) =>
+    fetch(`/api/messages/${id}`, {
       method: 'PATCH',
       headers: headers(),
       body: JSON.stringify(body),
     }).then(parseJson),
-  actionQueue: () => fetch('/api/action-queue').then(parseJson),
-  processTriggers: () =>
-    fetch('/api/action/process-triggers', { method: 'POST', headers: headers() }).then(parseJson),
-  recomputeScores: () =>
-    fetch('/api/score/recompute', { method: 'POST', headers: headers() }).then(parseJson),
-  reseed: () => fetch('/api/seed', { method: 'POST' }).then(parseJson),
+  linkedInSent: (id, token) =>
+    fetch(`/api/messages/${id}/linkedin-sent`, {
+      method: 'POST',
+      headers: headers(token),
+      body: '{}',
+    }).then(parseJson),
+  markReplied: (id) =>
+    fetch(`/api/leads/${id}/replied`, { method: 'POST', headers: headers() }).then(parseJson),
 };
