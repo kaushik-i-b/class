@@ -1,5 +1,7 @@
 import { scrapeUrl } from './scrape.js';
-import { applyScore, enrichmentCoverage } from './scoring.js';
+import { writeScore, enrichmentCoverage, COVERAGE_GATE } from './scoring.js';
+import { normalizeDomain, ensureCanonicalIds } from './identity.js';
+import { appendEvent } from './features.js';
 import { now } from './store.js';
 
 const INDUSTRY_HINTS = [
@@ -12,12 +14,159 @@ const INDUSTRY_HINTS = [
   [/devtool|developer|infrastructure|devops/i, 'Developer Tools'],
 ];
 
-const SIZE_BANDS = [
-  { max: 50, label: '1-50' },
-  { max: 200, label: '51-200' },
-  { max: 1000, label: '201-1000' },
-  { max: Infinity, label: '1000+' },
-];
+/**
+ * Waterfall enrichment (§2.2): cheap/local scrape first, heuristic fallback second.
+ * Each field carries confidence + last_verified_at.
+ */
+export async function enrichAccount(account, db = null) {
+  const domain = normalizeDomain(account.domain || account.website || '');
+  if (!domain) throw new Error('Account needs a domain for enrichment');
+
+  const website = account.website || `https://${domain}`;
+  const fieldConfidence = {};
+  const providersTried = [];
+
+  // Provider 1 — web scrape (cheap/local)
+  let scraped = null;
+  let scrapeError = null;
+  try {
+    scraped = await scrapeUrl(website);
+    providersTried.push({ provider: 'web_scrape', ok: true });
+  } catch (error) {
+    scrapeError = error.message;
+    providersTried.push({ provider: 'web_scrape', ok: false, error: scrapeError });
+  }
+
+  const corpus = [scraped?.title, scraped?.description, scraped?.text].filter(Boolean).join('\n');
+  const verifiedAt = now();
+
+  function setField(key, value, confidence, provider) {
+    if (value == null || value === '' || (Array.isArray(value) && !value.length)) return null;
+    fieldConfidence[key] = confidence;
+    return { value, confidence, provider, last_verified_at: verifiedAt };
+  }
+
+  // Waterfall per field
+  let industry = account.industry;
+  let industryMeta = null;
+  if (!industry && corpus) {
+    industryMeta = setField('industry', inferIndustry(corpus), 0.75, 'web_scrape');
+    industry = industryMeta?.value;
+  }
+  if (!industry) {
+    industryMeta = setField('industry', 'Technology', 0.4, 'heuristic_fallback');
+    industry = industryMeta.value;
+  }
+
+  let employeeCount = account.employeeCount;
+  if (!employeeCount) {
+    const meta = setField('employeeCount', sizeFromDomainHash(domain), 0.55, 'heuristic_fallback');
+    employeeCount = meta.value;
+  } else {
+    fieldConfidence.employeeCount = fieldConfidence.employeeCount ?? 0.8;
+  }
+
+  let funding = account.funding;
+  if (!funding) {
+    const meta = setField('funding', fundingFromDomainHash(domain), 0.5, 'heuristic_fallback');
+    funding = meta.value;
+  } else {
+    fieldConfidence.funding = fieldConfidence.funding ?? 0.8;
+  }
+
+  let techStack = account.techStack?.length ? account.techStack : null;
+  if (!techStack && corpus) {
+    const inferred = inferTechStack(corpus);
+    const meta = setField('techStack', inferred.length ? inferred : ['Unknown'], inferred.length ? 0.7 : 0.35, 'web_scrape');
+    techStack = meta.value;
+  }
+  if (!techStack) {
+    techStack = setField('techStack', ['Unknown'], 0.3, 'heuristic_fallback').value;
+  } else {
+    fieldConfidence.techStack = fieldConfidence.techStack ?? 0.75;
+  }
+
+  let keyContact = account.keyContact?.name ? account.keyContact : null;
+  if (!keyContact) {
+    keyContact = {
+      name: guessContactName(account.name),
+      title: 'Head of Growth',
+      email: `growth@${domain}`,
+      linkedin: '',
+    };
+    fieldConfidence.keyContact = 0.45;
+  } else {
+    fieldConfidence.keyContact = fieldConfidence.keyContact ?? 0.85;
+  }
+
+  let customSignal = account.customSignal;
+  if (!customSignal) {
+    customSignal =
+      inferHiringSignal(corpus) || {
+        type: 'web_presence',
+        value: scraped
+          ? `Live site indexed · ${scraped.wordCount} words`
+          : `Enrichment fallback · ${scrapeError || 'no scrape'}`,
+        detectedAt: verifiedAt,
+      };
+    fieldConfidence.customSignal = scraped ? 0.65 : 0.4;
+  } else {
+    fieldConfidence.customSignal = fieldConfidence.customSignal ?? 0.7;
+  }
+
+  // Rule-based ICP fit (0–100) from enrichment, not behavioral signals
+  const icpFitScore = computeIcpFit({ industry, employeeCount, funding, techStack });
+
+  const next = ensureCanonicalIds({
+    ...account,
+    domain,
+    website,
+    industry,
+    employeeCount,
+    funding,
+    techStack,
+    keyContact,
+    customSignal,
+    icpFitScore,
+    signals: {
+      ...(account.signals || {}),
+      icpFit: Math.round(icpFitScore * 0.3), // keep legacy 0–30 scale for display
+    },
+    enrichment: {
+      lastEnrichedAt: verifiedAt,
+      source: scraped ? 'waterfall:web_scrape' : 'waterfall:heuristic_fallback',
+      scrapeError,
+      pageTitle: scraped?.title || null,
+      providersTried,
+      fieldConfidence,
+      coverageGate: COVERAGE_GATE,
+    },
+  });
+
+  next.enrichment.coverage = enrichmentCoverage(next);
+
+  if (db) {
+    appendEvent(db, {
+      account_id: next.id,
+      signal_type: 'custom_signal',
+      value: 1,
+      timestamp: customSignal.detectedAt || verifiedAt,
+      source: 'enrichment',
+    });
+    writeScore(db, next, next.heatTier || null);
+  }
+
+  return next;
+}
+
+function computeIcpFit({ industry, employeeCount, funding, techStack }) {
+  let score = 40;
+  if (/saas|fintech|cyber|developer|ai/i.test(industry || '')) score += 25;
+  if (/51-200|201-1000/.test(employeeCount || '')) score += 15;
+  if (/Series A|Series B|Series C/i.test(funding || '')) score += 10;
+  if ((techStack || []).some((t) => /aws|salesforce|hubspot|snowflake/i.test(t))) score += 10;
+  return Math.max(0, Math.min(100, score));
+}
 
 function inferIndustry(text) {
   for (const [re, label] of INDUSTRY_HINTS) {
@@ -43,8 +192,7 @@ function inferTechStack(text) {
 }
 
 function inferHiringSignal(text) {
-  const hiring = /(we.?re hiring|open roles|careers|join our team|hiring\s+\w+)/i.test(text);
-  if (!hiring) return null;
+  if (!/(we.?re hiring|open roles|careers|join our team|hiring\s+\w+)/i.test(text)) return null;
   return {
     type: 'hiring_spike',
     value: 'Public careers/hiring language detected on site',
@@ -53,10 +201,10 @@ function inferHiringSignal(text) {
 }
 
 function sizeFromDomainHash(domain) {
+  const bands = ['1-50', '51-200', '201-1000', '1000+'];
   let hash = 0;
   for (const ch of domain) hash = (hash + ch.charCodeAt(0) * 17) % 997;
-  const n = 20 + (hash % 1800);
-  return SIZE_BANDS.find((b) => n <= b.max).label;
+  return bands[hash % bands.length];
 }
 
 function fundingFromDomainHash(domain) {
@@ -64,74 +212,6 @@ function fundingFromDomainHash(domain) {
   let hash = 0;
   for (const ch of domain) hash = (hash + ch.charCodeAt(0) * 31) % 101;
   return stages[hash % stages.length];
-}
-
-/**
- * Enrichment-first pipeline: fill core fields before automation.
- * Core fields: industry, size, funding, key contact, custom signal (+ tech stack, website).
- */
-export async function enrichAccount(account) {
-  const domain = (account.domain || account.website || '')
-    .replace(/^https?:\/\//, '')
-    .replace(/\/.*$/, '')
-    .trim();
-
-  if (!domain) {
-    throw new Error('Account needs a domain for enrichment');
-  }
-
-  const website = account.website || `https://${domain}`;
-  let scraped = null;
-  let scrapeError = null;
-
-  try {
-    scraped = await scrapeUrl(website);
-  } catch (error) {
-    scrapeError = error.message;
-  }
-
-  const corpus = [scraped?.title, scraped?.description, scraped?.text].filter(Boolean).join('\n');
-
-  const next = {
-    ...account,
-    domain,
-    website,
-    industry: account.industry || (corpus ? inferIndustry(corpus) : 'Unknown'),
-    employeeCount: account.employeeCount || sizeFromDomainHash(domain),
-    funding: account.funding || fundingFromDomainHash(domain),
-    techStack:
-      account.techStack?.length > 0
-        ? account.techStack
-        : corpus
-          ? inferTechStack(corpus)
-          : ['Unknown'],
-    keyContact: {
-      name: account.keyContact?.name || guessContactName(account.name),
-      title: account.keyContact?.title || 'Head of Growth',
-      email:
-        account.keyContact?.email ||
-        `growth@${domain.replace(/^www\./, '')}`,
-      linkedin: account.keyContact?.linkedin || '',
-    },
-    customSignal:
-      account.customSignal ||
-      inferHiringSignal(corpus) || {
-        type: 'web_presence',
-        value: scraped
-          ? `Live site indexed · ${scraped.wordCount} words`
-          : `Enrichment fallback · ${scrapeError || 'no scrape'}`,
-        detectedAt: now(),
-      },
-    enrichment: {
-      lastEnrichedAt: now(),
-      source: scraped ? 'web_scrape' : 'heuristic_fallback',
-      scrapeError,
-      pageTitle: scraped?.title || null,
-    },
-  };
-
-  next.enrichment.coverage = enrichmentCoverage(next);
-  return applyScore(next);
 }
 
 function guessContactName(companyName = 'Account') {

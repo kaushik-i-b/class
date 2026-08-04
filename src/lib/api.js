@@ -32,6 +32,12 @@ export const api = {
     }).then(parseJson),
   enrichAccount: (id) =>
     fetch(`/api/accounts/${id}/enrich`, { method: 'POST', headers: headers() }).then(parseJson),
+  addEvent: (id, body) =>
+    fetch(`/api/accounts/${id}/events`, {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify(body),
+    }).then(parseJson),
   sequences: () => fetch('/api/sequences').then(parseJson),
   updateSequence: (id, body) =>
     fetch(`/api/sequences/${id}`, {
@@ -76,5 +82,10 @@ export const api = {
       headers: headers(),
       body: JSON.stringify(body),
     }).then(parseJson),
+  actionQueue: () => fetch('/api/action-queue').then(parseJson),
+  processTriggers: () =>
+    fetch('/api/action/process-triggers', { method: 'POST', headers: headers() }).then(parseJson),
+  recomputeScores: () =>
+    fetch('/api/score/recompute', { method: 'POST', headers: headers() }).then(parseJson),
   reseed: () => fetch('/api/seed', { method: 'POST' }).then(parseJson),
 };

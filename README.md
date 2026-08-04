@@ -1,65 +1,43 @@
 # Cycle — GTM Engineering OS
 
-A go-to-market operating system that runs like a product: ingest accounts, enrich them, score heat, trigger personalized outreach, and measure what works on a two-week sprint cycle.
+Implements the GTM Engineering product brief **and** the technical requirements architecture:
 
-This is **not** another outbound tool — it is a compounding GTM engine.
+`CRM/SoR → Enrichment → Feature Store → Scoring Engine → Action Layer → Analytics`  
+(with a feedback loop from outcomes back into the feature store).
 
-## Architecture (4 layers)
+## Spec alignment
 
-1. **System of record** — local account/contact store (CRM-shaped; swap for Salesforce/HubSpot later)
-2. **Enrichment layer** — scrapes company sites + fills core fields (industry, size, funding, key contact, custom signal, tech stack)
-3. **Action layer** — heat-tier sequences with draft-for-review outreach (Qwen personalization when an HF token is set)
-4. **Analytics engine** — touches, outcomes, sprint experiments, and KPI dashboard
+| Requirement | Implementation |
+|---|---|
+| Identity resolution | `server/identity.js` — domain normalize + email/domain fuzzy match |
+| Enrichment contract + confidence | Field-level `confidence` / `last_verified_at`; waterfall scrape → heuristic |
+| Coverage gate (&lt;60%) | Scoring discounts/refuses; Action skips gated accounts |
+| Feature store | `events[]` timestamped facts → decayed features (`server/features.js`) |
+| Scoring v1 | Weighted linear model, 0–1 normalize, time decay, `scores[]` versioned rows |
+| Decoupling | Action reads **only** `scores` / enqueue payload — never raw signals |
+| Tier-transition triggers | Warm→Hot / Cold→Warm enqueue + 14-day cooldown |
+| Draft-for-review | Default campaign/queue mode |
+| score_at_send_time | Logged on every touch for attribution |
+| Experiment variants | First-class `variant_id` + hypothesis + segment |
+| KPI math | Speed-to-lead, coverage, heat→conversion (60d), sprint velocity, lift (directional flag) |
 
-## MVP features
+**Intentionally stubbed for local MVP (integrate later):** live Salesforce/HubSpot CDC, Clearbit/ZoomInfo waterfall vendors, Outreach/Salesloft send APIs, learned ML scoring (step 7 in build sequencing).
 
-- Enrichment pipeline for core fields + coverage %
-- Composite **heat score** (ICP fit, site visits, content engagement, replies, coverage bonus)
-- Editable outreach sequences tied to Hot / Warm / Cold tiers
-- Dashboard: accounts by heat, live campaigns, sprint results
-- Two-week sprint workflow with experiment logging and lift
-
-## KPIs surfaced
-
-- Speed-to-lead
-- Data coverage
-- Heat-score-to-conversion
-- Sprint velocity
-- Lift per experiment
-
-## Stack
-
-- React + Vite frontend
-- Express API + JSON system of record
-- Cheerio web scraper for enrichment
-- Qwen (`Qwen/Qwen2.5-7B-Instruct`) via Hugging Face Inference Providers for outreach drafts
-
-## Setup
+## Run
 
 ```bash
 npm install
-cp .env.example .env   # optional HF_TOKEN
 npm run dev
 ```
 
-Open `http://localhost:5173`.
+Open `http://localhost:5173`. Optional `HF_TOKEN` for Qwen outreach personalization.
 
-### Optional AI token
+## Build sequencing (followed)
 
-Add `HF_TOKEN` in `.env` or paste a Hugging Face token in **Settings**. Enrichment and scoring work without it; Qwen drafting falls back to templates.
-
-## Build order (as designed)
-
-1. Data quality / enrichment  
-2. Scoring (decoupled from raw signals)  
-3. Outreach triggering from score tier  
-4. Sprint measurement loop  
-
-## Scripts
-
-```bash
-npm run dev      # API :8787 + Vite :5173
-npm run build
-npm start        # serve built app from Express
-npm run seed     # reset demo data
-```
+1. Identity + SoR spine  
+2. Enrichment + coverage gating  
+3. Event/feature store  
+4. Scoring engine v1 (hand-weighted, decoupled)  
+5. Action layer draft-for-review  
+6. Analytics + experiment framework  
+7. Auto-send + learned model — **not enabled yet** (needs logged outcomes volume)

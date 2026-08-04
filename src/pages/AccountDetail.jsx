@@ -5,15 +5,13 @@ import HeatBadge from '../components/HeatBadge';
 
 export default function AccountDetail() {
   const { id } = useParams();
-  const [account, setAccount] = useState(null);
-  const [touches, setTouches] = useState([]);
+  const [payload, setPayload] = useState(null);
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
 
   async function load() {
     const data = await api.account(id);
-    setAccount(data.account);
-    setTouches(data.touches || []);
+    setPayload(data);
   }
 
   useEffect(() => {
@@ -22,11 +20,11 @@ export default function AccountDetail() {
 
   async function enrich() {
     setBusy(true);
-    setStatus('Running enrichment pipeline…');
+    setStatus('Running waterfall enrichment…');
     try {
       await api.enrichAccount(id);
       await load();
-      setStatus('Core fields refreshed from site + heuristics.');
+      setStatus('Enrichment complete — score rewritten to versioned table.');
     } catch (err) {
       setStatus(err.message);
     } finally {
@@ -34,19 +32,23 @@ export default function AccountDetail() {
     }
   }
 
-  async function bumpSignal(key, delta) {
-    if (!account) return;
-    const signals = {
-      ...account.signals,
-      [key]: Math.max(0, Math.min(key === 'icpFit' ? 30 : 20, (account.signals?.[key] || 0) + delta)),
-    };
-    await api.updateAccount(id, { signals });
-    await load();
+  async function emit(signal_type) {
+    setBusy(true);
+    try {
+      await api.addEvent(id, { signal_type, value: 1 });
+      await load();
+      setStatus(`Logged ${signal_type} → features rematerialized → score updated.`);
+    } catch (err) {
+      setStatus(err.message);
+    } finally {
+      setBusy(false);
+    }
   }
 
-  if (!account) return <p className="status">{status || 'Loading account…'}</p>;
+  if (!payload?.account) return <p className="status">{status || 'Loading account…'}</p>;
 
-  const b = account.scoreBreakdown || {};
+  const { account, score, features, events, scoreHistory, touches, cooldown } = payload;
+  const quality = account.fieldQuality || {};
 
   return (
     <div>
@@ -58,133 +60,190 @@ export default function AccountDetail() {
           <h1>{account.name}</h1>
           <p>
             {account.website} · <HeatBadge tier={account.heatTier} score={account.heatScore} />
+            {score?.gated ? ' · gated' : ''}
+            {cooldown ? ' · cooldown' : ''}
           </p>
         </div>
         <div className="actions">
           <button className="btn btn-primary" disabled={busy} onClick={enrich} type="button">
-            {busy ? 'Enriching…' : 'Run enrichment'}
+            {busy ? 'Working…' : 'Run enrichment'}
           </button>
         </div>
       </div>
 
       <div className="grid-2">
         <section className="card stack">
-          <h2>Enrichment layer</h2>
+          <h2>Enrichment contract</h2>
           <p className="muted">
-            Coverage {account.enrichment?.coverage ?? 0}% · source {account.enrichment?.source || '—'}
+            Coverage {account.enrichment?.coverage ?? 0}% · gate {score?.gated ? 'ON' : 'off'} ·{' '}
+            {account.enrichment?.source || '—'}
           </p>
           <table className="table">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Value</th>
+                <th>Confidence</th>
+              </tr>
+            </thead>
             <tbody>
               <tr>
-                <th>Industry</th>
+                <td>Industry</td>
                 <td>{account.industry || '—'}</td>
+                <td>{fmtConf(quality.industry)}</td>
               </tr>
               <tr>
-                <th>Company size</th>
+                <td>Employees</td>
                 <td>{account.employeeCount || '—'}</td>
+                <td>{fmtConf(quality.employee_count)}</td>
               </tr>
               <tr>
-                <th>Funding</th>
+                <td>Funding</td>
                 <td>{account.funding || '—'}</td>
+                <td>{fmtConf(quality.funding)}</td>
               </tr>
               <tr>
-                <th>Tech stack</th>
+                <td>Tech stack</td>
                 <td>{(account.techStack || []).join(', ') || '—'}</td>
+                <td>{fmtConf(quality.tech_stack)}</td>
               </tr>
               <tr>
-                <th>Key contact</th>
+                <td>Key contact</td>
                 <td>
-                  {account.keyContact?.name} · {account.keyContact?.title}
-                  <div className="muted">{account.keyContact?.email}</div>
+                  {account.keyContact?.name || '—'} · {account.keyContact?.title}
                 </td>
+                <td>{fmtConf(quality.key_contact)}</td>
               </tr>
               <tr>
-                <th>Custom signal</th>
+                <td>Custom signal</td>
                 <td>{account.customSignal?.value || '—'}</td>
+                <td>{fmtConf(quality.custom_signal)}</td>
+              </tr>
+              <tr>
+                <td>ICP fit (rule)</td>
+                <td>{account.icpFitScore ?? '—'}</td>
+                <td>{fmtConf(quality.icp_fit_score)}</td>
               </tr>
             </tbody>
           </table>
-          <p className={`status ${status.includes('refreshed') ? 'ok' : ''}`}>{status}</p>
         </section>
 
         <section className="stack">
           <div className="card">
-            <h2>Heat score</h2>
-            <p className="muted">Signals feed the score; score decides outreach eligibility.</p>
+            <h2>Versioned score</h2>
+            <p className="muted">
+              {score?.score_version || '—'} · computed{' '}
+              {score?.computed_at ? new Date(score.computed_at).toLocaleString() : '—'}
+            </p>
             <p style={{ fontFamily: 'var(--font-display)', fontSize: '2.6rem', margin: '0.4rem 0' }}>
               {account.heatScore}
             </p>
+            {score?.gateReason && <p className="status error">{score.gateReason}</p>}
             <table className="table">
               <tbody>
-                <tr>
-                  <td>ICP fit</td>
-                  <td>{b.icpFit}</td>
-                  <td>
-                    <button className="btn btn-ghost" type="button" onClick={() => bumpSignal('icpFit', 2)}>
-                      +
-                    </button>
-                  </td>
-                </tr>
-                <tr>
-                  <td>Site visits</td>
-                  <td>{b.siteVisits}</td>
-                  <td>
-                    <button
-                      className="btn btn-ghost"
-                      type="button"
-                      onClick={() => bumpSignal('siteVisits', 2)}
-                    >
-                      +
-                    </button>
-                  </td>
-                </tr>
-                <tr>
-                  <td>Content engagement</td>
-                  <td>{b.contentEngagement}</td>
-                  <td>
-                    <button
-                      className="btn btn-ghost"
-                      type="button"
-                      onClick={() => bumpSignal('contentEngagement', 2)}
-                    >
-                      +
-                    </button>
-                  </td>
-                </tr>
-                <tr>
-                  <td>Replies</td>
-                  <td>{b.replies}</td>
-                  <td>
-                    <button className="btn btn-ghost" type="button" onClick={() => bumpSignal('replies', 2)}>
-                      +
-                    </button>
-                  </td>
-                </tr>
-                <tr>
-                  <td>Coverage bonus</td>
-                  <td>{b.coverageBonus}</td>
-                  <td></td>
-                </tr>
+                {Object.entries(score?.normalized || {}).map(([k, v]) => (
+                  <tr key={k}>
+                    <td>{k}</td>
+                    <td>{v}</td>
+                    <td className="muted">w={score?.weights?.[k]}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
 
           <div className="card">
-            <h3>Touches</h3>
-            <div className="stack" style={{ marginTop: '0.75rem' }}>
-              {touches.length === 0 && <p className="muted">No outreach logged yet.</p>}
-              {touches.map((t) => (
-                <div className="touch" key={t.id}>
-                  <div>
-                    <span className="badge">{t.status}</span> · {t.channel}
-                  </div>
-                  <strong>{t.subject}</strong>
-                </div>
-              ))}
+            <h3>Feature store (decayed)</h3>
+            <table className="table">
+              <tbody>
+                <tr>
+                  <td>Site visits (7d)</td>
+                  <td>{features?.site_visits_7d}</td>
+                </tr>
+                <tr>
+                  <td>Site visits decayed</td>
+                  <td>{features?.site_visits_decayed}</td>
+                </tr>
+                <tr>
+                  <td>Replies decayed</td>
+                  <td>{features?.replies_decayed}</td>
+                </tr>
+                <tr>
+                  <td>Content decayed</td>
+                  <td>{features?.content_engagement_decayed}</td>
+                </tr>
+              </tbody>
+            </table>
+            <div className="actions" style={{ marginTop: '0.75rem' }}>
+              <button className="btn btn-ghost" type="button" disabled={busy} onClick={() => emit('site_visit')}>
+                + site visit
+              </button>
+              <button
+                className="btn btn-ghost"
+                type="button"
+                disabled={busy}
+                onClick={() => emit('content_download')}
+              >
+                + content
+              </button>
+              <button className="btn btn-ghost" type="button" disabled={busy} onClick={() => emit('email_reply')}>
+                + reply
+              </button>
             </div>
           </div>
         </section>
       </div>
+
+      <div className="grid-2" style={{ marginTop: '1rem' }}>
+        <section className="card">
+          <h3>Event log</h3>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>When</th>
+                <th>Source</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(events || []).slice(0, 12).map((e) => (
+                <tr key={e.id}>
+                  <td>{e.signal_type}</td>
+                  <td className="muted">{new Date(e.timestamp).toLocaleString()}</td>
+                  <td className="muted">{e.source}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+        <section className="card">
+          <h3>Score history + touches</h3>
+          <div className="stack">
+            {(scoreHistory || []).slice(0, 4).map((s) => (
+              <div key={s.id} className="muted">
+                {s.tier} · {s.score} · {s.previous_tier ? `from ${s.previous_tier}` : 'seed'} ·{' '}
+                {new Date(s.computed_at).toLocaleString()}
+              </div>
+            ))}
+            {(touches || []).map((t) => (
+              <div className="touch" key={t.id}>
+                <span className="badge">{t.status}</span> {t.subject}
+                <div className="muted">
+                  score@send {t.score_at_send_time ?? '—'} · {t.tier_at_send_time || '—'}
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className={`status ${status.includes('complete') || status.includes('Logged') ? 'ok' : ''}`}>
+            {status}
+          </p>
+        </section>
+      </div>
     </div>
   );
+}
+
+function fmtConf(field) {
+  if (!field || field.confidence == null) return '—';
+  return `${Math.round(field.confidence * 100)}%`;
 }

@@ -68,7 +68,7 @@ export default function Accounts() {
                 <th>Company</th>
                 <th>Heat</th>
                 <th>Coverage</th>
-                <th>ICP / visits / eng / replies</th>
+                <th>Score gate</th>
                 <th></th>
               </tr>
             </thead>
@@ -85,9 +85,12 @@ export default function Accounts() {
                     <HeatBadge tier={a.heatTier} score={a.heatScore} />
                   </td>
                   <td>{a.enrichment?.coverage ?? 0}%</td>
-                  <td className="muted">
-                    {a.signals?.icpFit}/{a.signals?.siteVisits}/{a.signals?.contentEngagement}/
-                    {a.signals?.replies}
+                  <td>
+                    {a.score_gated ? (
+                      <span className="badge">gated &lt;60%</span>
+                    ) : (
+                      <span className="badge good">pass</span>
+                    )}
                   </td>
                   <td>
                     <button

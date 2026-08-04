@@ -1,5 +1,8 @@
 import { id, now, readDb, writeDb } from './store.js';
-import { applyScore } from './scoring.js';
+import { writeScore } from './scoring.js';
+import { seedBehavioralEvents } from './features.js';
+import { normalizeDomain } from './identity.js';
+import { processTierTriggers } from './action.js';
 
 function daysAgo(n) {
   const d = new Date();
@@ -23,12 +26,25 @@ function startOfSprint(offsetWeeks = 0) {
 }
 
 export function seedIfEmpty(force = false) {
-  const db = readDb();
-  if (!force && db.meta?.seededAt && db.accounts.length > 0) return db;
+  const existing = readDb();
+  if (!force && existing.meta?.seededAt && existing.accounts?.length > 0) return existing;
 
-  const accounts = [
+  const db = {
+    accounts: [],
+    contacts: [],
+    sequences: [],
+    campaigns: [],
+    touches: [],
+    sprints: [],
+    experiments: [],
+    events: [],
+    scores: [],
+    action_queue: [],
+    meta: { seededAt: now(), score_version: 'v1.linear.decay.2026-08' },
+  };
+
+  const rawAccounts = [
     {
-      id: id(),
       name: 'Northstar Analytics',
       domain: 'example.com',
       website: 'https://example.com',
@@ -47,12 +63,10 @@ export function seedIfEmpty(force = false) {
         value: '3 open GTM roles posted this month',
         detectedAt: daysAgo(3),
       },
-      signals: { icpFit: 28, siteVisits: 14, contentEngagement: 12, replies: 8 },
-      createdAt: daysAgo(20),
-      updatedAt: daysAgo(1),
+      icpFitScore: 88,
+      behavior: { siteVisits: 8, replies: 2, content: 3 },
     },
     {
-      id: id(),
       name: 'Harbor Payments',
       domain: 'stripe.com',
       website: 'https://stripe.com',
@@ -71,12 +85,10 @@ export function seedIfEmpty(force = false) {
         value: 'Expanded payments stack language on homepage',
         detectedAt: daysAgo(5),
       },
-      signals: { icpFit: 22, siteVisits: 18, contentEngagement: 16, replies: 4 },
-      createdAt: daysAgo(18),
-      updatedAt: daysAgo(2),
+      icpFitScore: 76,
+      behavior: { siteVisits: 12, replies: 1, content: 4 },
     },
     {
-      id: id(),
       name: 'LeafClinic',
       domain: 'wikipedia.org',
       website: 'https://en.wikipedia.org/wiki/Health_technology',
@@ -95,12 +107,10 @@ export function seedIfEmpty(force = false) {
         value: 'Series B announced in niche trade press',
         detectedAt: daysAgo(8),
       },
-      signals: { icpFit: 18, siteVisits: 6, contentEngagement: 9, replies: 2 },
-      createdAt: daysAgo(15),
-      updatedAt: daysAgo(4),
+      icpFitScore: 58,
+      behavior: { siteVisits: 3, replies: 0, content: 2 },
     },
     {
-      id: id(),
       name: 'Stackwright',
       domain: 'github.com',
       website: 'https://github.com',
@@ -119,12 +129,10 @@ export function seedIfEmpty(force = false) {
         value: 'Migrating docs to new developer portal',
         detectedAt: daysAgo(2),
       },
-      signals: { icpFit: 26, siteVisits: 11, contentEngagement: 15, replies: 10 },
-      createdAt: daysAgo(12),
-      updatedAt: daysAgo(1),
+      icpFitScore: 84,
+      behavior: { siteVisits: 7, replies: 3, content: 3 },
     },
     {
-      id: id(),
       name: 'Copperline Retail',
       domain: 'shopify.com',
       website: 'https://www.shopify.com',
@@ -143,12 +151,10 @@ export function seedIfEmpty(force = false) {
         value: 'Heavy merchandising + AI shopping messaging',
         detectedAt: daysAgo(6),
       },
-      signals: { icpFit: 12, siteVisits: 4, contentEngagement: 5, replies: 0 },
-      createdAt: daysAgo(10),
-      updatedAt: daysAgo(6),
+      icpFitScore: 42,
+      behavior: { siteVisits: 2, replies: 0, content: 1 },
     },
     {
-      id: id(),
       name: 'Nimbus Security',
       domain: 'cloudflare.com',
       website: 'https://www.cloudflare.com',
@@ -167,22 +173,78 @@ export function seedIfEmpty(force = false) {
         value: 'Enterprise AE hiring wave',
         detectedAt: daysAgo(1),
       },
-      signals: { icpFit: 30, siteVisits: 16, contentEngagement: 14, replies: 12 },
-      createdAt: daysAgo(9),
-      updatedAt: daysAgo(0),
+      icpFitScore: 92,
+      behavior: { siteVisits: 10, replies: 3, content: 4 },
     },
-  ].map((a) =>
-    applyScore({
-      ...a,
+    {
+      // Thin account — demonstrates coverage gate (§2.2 / §5)
+      name: 'Sparse Co',
+      domain: 'example.org',
+      website: 'https://example.org',
+      industry: '',
+      employeeCount: '',
+      funding: '',
+      techStack: [],
+      keyContact: { name: '', title: '', email: '', linkedin: '' },
+      customSignal: null,
+      icpFitScore: 20,
+      behavior: { siteVisits: 1, replies: 0, content: 0 },
+    },
+  ];
+
+  for (const raw of rawAccounts) {
+    const account = {
+      id: id(),
+      account_id: null,
+      name: raw.name,
+      domain: normalizeDomain(raw.domain),
+      website: raw.website,
+      industry: raw.industry,
+      employeeCount: raw.employeeCount,
+      funding: raw.funding,
+      techStack: raw.techStack,
+      keyContact: raw.keyContact,
+      customSignal: raw.customSignal,
+      icpFitScore: raw.icpFitScore,
+      signals: { icpFit: Math.round(raw.icpFitScore * 0.3) },
       enrichment: {
         coverage: 0,
         lastEnrichedAt: daysAgo(2),
         source: 'seed',
+        fieldConfidence: {},
       },
-    })
-  );
+      createdAt: daysAgo(20),
+      updatedAt: daysAgo(1),
+    };
+    account.account_id = account.id;
 
-  const sequences = [
+    if (account.keyContact?.name) {
+      db.contacts.push({
+        id: id(),
+        contact_id: null,
+        account_id: account.id,
+        name: account.keyContact.name,
+        title: account.keyContact.title,
+        email: account.keyContact.email,
+        linkedin: account.keyContact.linkedin,
+      });
+      db.contacts[db.contacts.length - 1].contact_id = db.contacts[db.contacts.length - 1].id;
+    }
+
+    db.accounts.push(account);
+    seedBehavioralEvents(db, account, raw.behavior);
+  }
+
+  // First pass scores (cold baseline), then bump events and rescore to create transitions
+  for (const account of db.accounts) {
+    writeScore(db, account, 'cold');
+  }
+  // Force a warm→hot style previous_tier on top accounts by rewriting with prior tier
+  for (const account of db.accounts.filter((a) => a.icpFitScore >= 80)) {
+    writeScore(db, account, 'warm');
+  }
+
+  db.sequences = [
     {
       id: id(),
       name: 'Hot account — 3-touch sprint',
@@ -285,113 +347,106 @@ export function seedIfEmpty(force = false) {
     },
   };
 
-  const experiments = [
+  db.sprints = [activeSprint, previousSprint];
+
+  // First-class experiment/variant objects (§2.6)
+  db.experiments = [
     {
       id: id(),
       sprintId: activeSprint.id,
+      variant_id: id(),
       name: 'Hot opener: signal vs product',
+      hypothesis: 'Signal-led subjects beat product-led for Hot tier',
       variantA: 'Signal-led subject',
       variantB: 'Product-led subject',
+      messageCopy: {
+        A: 'Saw {{signal}} — timing check',
+        B: 'Introducing Cycle for {{company}}',
+      },
+      targetSegment: 'hot',
       metric: 'reply_rate',
       lift: 0.18,
+      sampleSize: 42,
       shippedAt: daysAgo(6),
       status: 'running',
     },
     {
       id: id(),
       sprintId: previousSprint.id,
+      variant_id: id(),
       name: 'Enrich-before-send gate',
+      hypothesis: 'Blocking sends below 80% coverage improves meetings',
       variantA: 'Send with partial fields',
       variantB: 'Block until coverage ≥ 80%',
+      messageCopy: { A: 'n/a', B: 'n/a' },
+      targetSegment: 'all',
       metric: 'meetings',
       lift: 0.04,
+      sampleSize: 110,
       shippedAt: daysAgo(16),
       status: 'completed',
     },
   ];
 
-  const hotSeq = sequences[0];
-  const warmSeq = sequences[1];
-  const hotAccounts = accounts.filter((a) => a.heatTier === 'hot').map((a) => a.id);
-  const warmAccounts = accounts.filter((a) => a.heatTier === 'warm').map((a) => a.id);
+  const hotSeq = db.sequences[0];
+  const warmSeq = db.sequences[1];
+  const hotAccounts = db.accounts.filter((a) => a.heatTier === 'hot').map((a) => a.id);
+  const warmAccounts = db.accounts.filter((a) => a.heatTier === 'warm').map((a) => a.id);
 
-  const campaigns = [
+  db.campaigns = [
     {
       id: id(),
       name: 'Hot burst — Sprint 12',
       sequenceId: hotSeq.id,
       sprintId: activeSprint.id,
+      variant_id: db.experiments[0].variant_id,
       accountIds: hotAccounts,
       mode: 'draft',
       status: 'live',
       createdAt: daysAgo(5),
-      stats: { drafted: 4, sent: 3, replies: 1, meetings: 0 },
+      stats: { drafted: 0, sent: 0, replies: 0, meetings: 0 },
     },
     {
       id: id(),
       name: 'Warm nurture — Sprint 12',
       sequenceId: warmSeq.id,
       sprintId: activeSprint.id,
+      variant_id: null,
       accountIds: warmAccounts,
       mode: 'draft',
       status: 'live',
       createdAt: daysAgo(4),
-      stats: { drafted: 3, sent: 2, replies: 0, meetings: 0 },
+      stats: { drafted: 0, sent: 0, replies: 0, meetings: 0 },
     },
   ];
 
-  const touches = [
-    {
+  // Seed touches with score_at_send_time (§2.6)
+  if (hotAccounts[0]) {
+    const score = db.scores.find((s) => s.account_id === hotAccounts[0]);
+    db.touches.push({
       id: id(),
       accountId: hotAccounts[0],
-      campaignId: campaigns[0].id,
+      contact_id: db.contacts.find((c) => c.account_id === hotAccounts[0])?.id || null,
+      campaignId: db.campaigns[0].id,
+      sequence_id: hotSeq.id,
+      variant_id: db.experiments[0].variant_id,
       channel: 'email',
       subject: 'Northstar Analytics × timing on hiring',
-      body: 'Drafted touch',
+      body: 'Seeded touch',
       status: 'replied',
+      score_at_send_time: score?.score ?? null,
+      tier_at_send_time: score?.tier ?? null,
+      score_version: score?.score_version ?? null,
       createdAt: daysAgo(4),
       sentAt: daysAgo(4),
       outcomeAt: daysAgo(3),
       signalToTouchHours: 5,
-    },
-    {
-      id: id(),
-      accountId: hotAccounts[1] || hotAccounts[0],
-      campaignId: campaigns[0].id,
-      channel: 'email',
-      subject: 'Signal follow-up',
-      body: 'Drafted touch',
-      status: 'sent',
-      createdAt: daysAgo(2),
-      sentAt: daysAgo(2),
-      outcomeAt: null,
-      signalToTouchHours: 8,
-    },
-    {
-      id: id(),
-      accountId: warmAccounts[0],
-      campaignId: campaigns[1].id,
-      channel: 'email',
-      subject: 'Hypothesis note',
-      body: 'Drafted touch',
-      status: 'sent',
-      createdAt: daysAgo(3),
-      sentAt: daysAgo(3),
-      outcomeAt: null,
-      signalToTouchHours: 20,
-    },
-  ];
+      signal_crossed_at: daysAgo(4.2),
+    });
+  }
 
-  const seeded = {
-    accounts,
-    sequences,
-    campaigns,
-    touches,
-    sprints: [activeSprint, previousSprint],
-    experiments,
-    meta: { seededAt: now() },
-  };
+  processTierTriggers(db, { mode: 'draft' });
 
-  writeDb(seeded);
-  return seeded;
+  writeDb(db);
+  return db;
 }
