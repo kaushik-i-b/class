@@ -1,71 +1,39 @@
-# Classroom
-An electron app similar to Google Classroom.
+# Cycle — Scrape leads, AI outreach, auto follow-up
 
+Usable campaign tool:
 
-### Development
+1. **Create a campaign** (ICP + offer + email/LinkedIn)
+2. **Find leads** by scraping URLs or keyword search (emails + LinkedIn links)
+3. **AI writes** first-touch email + LinkedIn messages (Qwen when `HF_TOKEN` is set)
+4. **Auto follow-ups** on day 3 / 7 (configurable) until replied
+5. **Send**: real email via SMTP, LinkedIn via copy → open profile → confirm
 
-- Clone Repository
-```
-git clone https://github.com/kaushik-i-b/class.git
-cd classroom
-```
+## Run
 
-- Install Dependencies
-```
+```bash
 npm install
+npm run dev
 ```
 
-- Set Up Firebase
-	- Create a firebase project from firebase console.
-	- Create a `.env` file at the root with following data.
-	```
-	REACT_APP_FIREBASE_API_KEY=<Your_Firebase_API_Key>
-	REACT_APP_FIREBASE_AUTH_DOMAIN=<Your_Firebase_Auth_Domain>
-	REACT_APP_FIREBASE_DATABASE_URL=<Your_Firebase_Database_URL>
-	REACT_APP_FIREBASE_PROJECT_ID=<Your_Firebase_Project_ID>
-	REACT_APP_FIREBASE_STORAGE_BUCKET=<Your_Firebase_Storage_Bucket>
-	REACT_APP_FIREBASE_MESSAGING_SENDER_ID=<Your_Firebase_Messaging_Sender_ID>
-	```
-	Note: You must create custom environment variables beginning with `REACT_APP_`. Visit [here](https://github.com/facebook/create-react-app/blob/master/packages/react-scripts/template/README.md#adding-development-environment-variables-in-env) for more information.
+Open `http://localhost:5173`.
 
-- Run
+## Real email (optional)
+
+```bash
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USER=you@example.com
+SMTP_PASS=secret
+SMTP_FROM=You <you@example.com>
+HF_TOKEN=hf_xxx
 ```
-npm start
-```
-------------------------------------------------------------------
 
-To prevent the browser from opening set `BROWSER=none` in the `.env` file.
+Without SMTP, emails are **simulated** (queued → marked sent) so you can still test the flow.
 
-## Screenshots
+## LinkedIn
 
-Sign-In / Sign-Up Page
+LinkedIn does not allow unattended auto-send from third-party apps without their partnership API. Cycle drafts AI messages, opens the profile, and schedules the next AI follow-up after you click **Mark LinkedIn sent**.
 
-![Main Page](./screenshots/Screenshot-1.JPG)
+## Render
 
-Subscribed Subjects
-
-![Subscribed Subjects](./screenshots/Screenshot-2.JPG)
-
-Lecture Notes and References (Teacher's View)
-
-![Lecture Notes and References](./screenshots/Screenshot-3.JPG)
-
-Announcements Page (Student's View)
-
-![Announcements Page](./screenshots/Screenshot-4.JPG)
-
-Subject's Home Page (Student's View)
-
-![Subject's Home Page](./screenshots/Screenshot-5.JPG)
-
-Assignment Page (Student's View)
-
-![Assignment Page](./screenshots/Screenshot-6.JPG)
-
-Discussion Forum
-
-![Discussion](./screenshots/Screenshot-7.JPG)
-
-Assignment Page (Teacher's View)
-
-![Assigment](./screenshots/Screenshot-8.JPG)
+See `DEPLOY_RENDER.md` / `render.yaml`.
