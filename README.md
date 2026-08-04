@@ -1,59 +1,65 @@
-# Qwin — AI Web Scraper
+# Cycle — GTM Engineering OS
 
-React webpage that scrapes public sites and analyzes the extracted content with the **Qwen** model via Hugging Face Inference Providers.
+A go-to-market operating system that runs like a product: ingest accounts, enrich them, score heat, trigger personalized outreach, and measure what works on a two-week sprint cycle.
 
-## Features
+This is **not** another outbound tool — it is a compounding GTM engine.
 
-- Paste any `http(s)` URL and scrape readable page text
-- Extract title, description, word count, and outbound links
-- Ask **Qwen** to summarize, list key points, extract structured data, or answer questions grounded in the page
-- Optional browser-stored Hugging Face token, or server-side `HF_TOKEN`
+## Architecture (4 layers)
+
+1. **System of record** — local account/contact store (CRM-shaped; swap for Salesforce/HubSpot later)
+2. **Enrichment layer** — scrapes company sites + fills core fields (industry, size, funding, key contact, custom signal, tech stack)
+3. **Action layer** — heat-tier sequences with draft-for-review outreach (Qwen personalization when an HF token is set)
+4. **Analytics engine** — touches, outcomes, sprint experiments, and KPI dashboard
+
+## MVP features
+
+- Enrichment pipeline for core fields + coverage %
+- Composite **heat score** (ICP fit, site visits, content engagement, replies, coverage bonus)
+- Editable outreach sequences tied to Hot / Warm / Cold tiers
+- Dashboard: accounts by heat, live campaigns, sprint results
+- Two-week sprint workflow with experiment logging and lift
+
+## KPIs surfaced
+
+- Speed-to-lead
+- Data coverage
+- Heat-score-to-conversion
+- Sprint velocity
+- Lift per experiment
 
 ## Stack
 
-- **Frontend:** React + Vite
-- **Backend:** Express scraper (`cheerio`) + Qwen chat completions proxy
-- **Model:** `Qwen/Qwen2.5-7B-Instruct` (configurable)
+- React + Vite frontend
+- Express API + JSON system of record
+- Cheerio web scraper for enrichment
+- Qwen (`Qwen/Qwen2.5-7B-Instruct`) via Hugging Face Inference Providers for outreach drafts
 
 ## Setup
 
 ```bash
 npm install
-```
-
-Create a `.env` file (optional):
-
-```bash
-cp .env.example .env
-```
-
-Set `HF_TOKEN` to a Hugging Face token with Inference Providers permission, or paste a token in the in-app Settings panel.
-
-## Run
-
-Development (API on `:8787`, Vite on `:5173` with proxy):
-
-```bash
+cp .env.example .env   # optional HF_TOKEN
 npm run dev
 ```
 
-Production:
+Open `http://localhost:5173`.
+
+### Optional AI token
+
+Add `HF_TOKEN` in `.env` or paste a Hugging Face token in **Settings**. Enrichment and scoring work without it; Qwen drafting falls back to templates.
+
+## Build order (as designed)
+
+1. Data quality / enrichment  
+2. Scoring (decoupled from raw signals)  
+3. Outreach triggering from score tier  
+4. Sprint measurement loop  
+
+## Scripts
 
 ```bash
+npm run dev      # API :8787 + Vite :5173
 npm run build
-npm start
+npm start        # serve built app from Express
+npm run seed     # reset demo data
 ```
-
-Open `http://localhost:5173` in development, or `http://localhost:8787` after building.
-
-## API
-
-- `POST /api/scrape` `{ "url": "https://example.com" }`
-- `POST /api/analyze` `{ "page": {...}, "mode": "summarize|keypoints|extract|qa", "question": "..." }`
-- `GET /api/health`
-
-## Notes
-
-- Scraping respects a short timeout and only accepts HTML responses.
-- Analysis requires a Hugging Face token (server env or Settings).
-- Change the model with `QWEN_MODEL` (OpenAI-compatible router id).

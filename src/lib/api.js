@@ -9,28 +9,72 @@ async function parseJson(response) {
   return data;
 }
 
-export async function scrapePage(url) {
-  const response = await fetch('/api/scrape', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url }),
-  });
-  return parseJson(response);
+function headers(token) {
+  const h = { 'Content-Type': 'application/json' };
+  if (token) h['x-hf-token'] = token;
+  return h;
 }
 
-export async function analyzePage({ page, mode, question, token }) {
-  const headers = { 'Content-Type': 'application/json' };
-  if (token) headers['x-hf-token'] = token;
-
-  const response = await fetch('/api/analyze', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ page, mode, question, token }),
-  });
-  return parseJson(response);
-}
-
-export async function getHealth() {
-  const response = await fetch('/api/health');
-  return parseJson(response);
-}
+export const api = {
+  health: () => fetch('/api/health').then(parseJson),
+  dashboard: () => fetch('/api/dashboard').then(parseJson),
+  accounts: () => fetch('/api/accounts').then(parseJson),
+  account: (id) => fetch(`/api/accounts/${id}`).then(parseJson),
+  createAccount: (body) =>
+    fetch('/api/accounts', { method: 'POST', headers: headers(), body: JSON.stringify(body) }).then(
+      parseJson
+    ),
+  updateAccount: (id, body) =>
+    fetch(`/api/accounts/${id}`, {
+      method: 'PATCH',
+      headers: headers(),
+      body: JSON.stringify(body),
+    }).then(parseJson),
+  enrichAccount: (id) =>
+    fetch(`/api/accounts/${id}/enrich`, { method: 'POST', headers: headers() }).then(parseJson),
+  sequences: () => fetch('/api/sequences').then(parseJson),
+  updateSequence: (id, body) =>
+    fetch(`/api/sequences/${id}`, {
+      method: 'PATCH',
+      headers: headers(),
+      body: JSON.stringify(body),
+    }).then(parseJson),
+  campaigns: () => fetch('/api/campaigns').then(parseJson),
+  createCampaign: (body) =>
+    fetch('/api/campaigns', { method: 'POST', headers: headers(), body: JSON.stringify(body) }).then(
+      parseJson
+    ),
+  draftCampaign: (id, body = {}, token) =>
+    fetch(`/api/campaigns/${id}/draft`, {
+      method: 'POST',
+      headers: headers(token),
+      body: JSON.stringify(body),
+    }).then(parseJson),
+  sendTouch: (id) =>
+    fetch(`/api/touches/${id}/send`, { method: 'POST', headers: headers() }).then(parseJson),
+  touchOutcome: (id, status) =>
+    fetch(`/api/touches/${id}/outcome`, {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({ status }),
+    }).then(parseJson),
+  touches: () => fetch('/api/touches').then(parseJson),
+  sprints: () => fetch('/api/sprints').then(parseJson),
+  createSprint: (body) =>
+    fetch('/api/sprints', { method: 'POST', headers: headers(), body: JSON.stringify(body) }).then(
+      parseJson
+    ),
+  createExperiment: (sprintId, body) =>
+    fetch(`/api/sprints/${sprintId}/experiments`, {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify(body),
+    }).then(parseJson),
+  updateExperiment: (id, body) =>
+    fetch(`/api/experiments/${id}`, {
+      method: 'PATCH',
+      headers: headers(),
+      body: JSON.stringify(body),
+    }).then(parseJson),
+  reseed: () => fetch('/api/seed', { method: 'POST' }).then(parseJson),
+};

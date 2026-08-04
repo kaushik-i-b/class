@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-const STORAGE_KEY = 'qwin.hfToken';
+const STORAGE_KEY = 'cycle.hfToken';
 
 export function useHfToken() {
   const [token, setTokenState] = useState(() => {
@@ -16,7 +16,7 @@ export function useHfToken() {
       if (token) localStorage.setItem(STORAGE_KEY, token);
       else localStorage.removeItem(STORAGE_KEY);
     } catch {
-      /* ignore storage errors */
+      /* ignore */
     }
   }, [token]);
 

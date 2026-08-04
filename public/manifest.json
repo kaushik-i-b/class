@@ -1,6 +1,6 @@
 {
-  "short_name": "Qwin",
-  "name": "Qwin — AI Web Scraper",
+  "short_name": "Cycle",
+  "name": "Cycle — GTM Engineering OS",
   "icons": [
     {
       "src": "favicon.svg",
@@ -10,6 +10,6 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#0b2a2e",
-  "background_color": "#071617"
+  "theme_color": "#14110f",
+  "background_color": "#14110f"
 }

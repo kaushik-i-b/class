@@ -51,7 +51,7 @@ export async function analyzeWithQwen({
     {
       role: 'system',
       content:
-        'You are Qwin, an AI research assistant powered by Qwen. You analyze scraped webpage content carefully, stay grounded in the source text, and write clearly for a general audience.',
+        'You are Cycle, a GTM engineering assistant powered by Qwen. You stay grounded in account/page evidence, write concise SDR-ready copy, and never invent facts that are not in the source.',
     },
     {
       role: 'user',

@@ -1,69 +1,48 @@
-import { useEffect, useState } from 'react';
-import SettingsModal from './components/SettingsModal.jsx';
-import ScrapeWorkspace from './components/ScrapeWorkspace.jsx';
-import { useHfToken } from './hooks/useHfToken.js';
-import { getHealth } from './lib/api.js';
+import { NavLink, Route, Routes } from 'react-router-dom';
+import Dashboard from './pages/Dashboard.jsx';
+import Accounts from './pages/Accounts.jsx';
+import AccountDetail from './pages/AccountDetail.jsx';
+import Campaigns from './pages/Campaigns.jsx';
+import Sprints from './pages/Sprints.jsx';
+import Settings from './pages/Settings.jsx';
+
+const links = [
+  ['/', 'Dashboard'],
+  ['/accounts', 'Accounts'],
+  ['/campaigns', 'Campaigns'],
+  ['/sprints', 'Sprints'],
+  ['/settings', 'Settings'],
+];
 
 export default function App() {
-  const [token, setToken] = useHfToken();
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [serverReady, setServerReady] = useState(null);
-
-  useEffect(() => {
-    getHealth()
-      .then((health) => setServerReady(health))
-      .catch(() => setServerReady({ ok: false }));
-  }, []);
-
-  function scrollToWorkspace() {
-    document.getElementById('workspace')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
   return (
-    <div className="app-shell">
-      <header className="topbar">
-        <a className="brand" href="#top" aria-label="Qwin home">
-          <div className="brand-mark">
-            Qw<span>in</span>
-          </div>
-          <div className="brand-tag">AI web scraper</div>
-        </a>
-        <button type="button" className="icon-btn" onClick={() => setSettingsOpen(true)}>
-          {token || serverReady?.hasServerToken ? 'Token ready' : 'Add HF token'}
-        </button>
-      </header>
-
-      <main id="top">
-        <section className="hero">
-          <div className="hero-visual" aria-hidden="true" />
-          <h1>
-            Scrape the web.
-            <br />
-            <em>Think with Qwen.</em>
-          </h1>
-          <p>
-            Qwin pulls readable content from any public page, then uses the Qwen model to summarize,
-            extract facts, and answer questions grounded in the source.
-          </p>
-          <div className="cta-row">
-            <button type="button" className="btn btn-primary" onClick={scrollToWorkspace}>
-              Start scraping
-            </button>
-            <button type="button" className="btn btn-ghost" onClick={() => setSettingsOpen(true)}>
-              Connect Qwen
-            </button>
-          </div>
-        </section>
-
-        <ScrapeWorkspace token={token} onNeedToken={() => setSettingsOpen(true)} />
+    <div className="app">
+      <aside className="sidebar">
+        <div className="brand">
+          <strong>Cycle</strong>
+          <span>GTM Engineering OS</span>
+        </div>
+        <nav className="nav">
+          {links.map(([to, label]) => (
+            <NavLink key={to} to={to} end={to === '/'}>
+              {label}
+            </NavLink>
+          ))}
+        </nav>
+        <div className="sidebar-foot">
+          Enrichment before automation. Score before triggers. Measure every two weeks.
+        </div>
+      </aside>
+      <main className="main">
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/accounts" element={<Accounts />} />
+          <Route path="/accounts/:id" element={<AccountDetail />} />
+          <Route path="/campaigns" element={<Campaigns />} />
+          <Route path="/sprints" element={<Sprints />} />
+          <Route path="/settings" element={<Settings />} />
+        </Routes>
       </main>
-
-      <SettingsModal
-        open={settingsOpen}
-        token={token}
-        onClose={() => setSettingsOpen(false)}
-        onSave={setToken}
-      />
     </div>
   );
 }
