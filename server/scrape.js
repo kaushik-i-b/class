@@ -32,6 +32,49 @@ function cleanText(text) {
     .trim();
 }
 
+function nodeText($, node) {
+  const parts = [];
+  node.contents().each((_, child) => {
+    if (child.type === 'text') {
+      parts.push(child.data || '');
+      return;
+    }
+    if (child.type !== 'tag') return;
+
+    const tag = child.name?.toLowerCase();
+    const blockTags = new Set([
+      'p',
+      'div',
+      'section',
+      'article',
+      'li',
+      'ul',
+      'ol',
+      'h1',
+      'h2',
+      'h3',
+      'h4',
+      'h5',
+      'h6',
+      'br',
+      'tr',
+      'blockquote',
+      'pre',
+    ]);
+
+    if (tag === 'br') {
+      parts.push('\n');
+      return;
+    }
+
+    const inner = nodeText($, $(child));
+    if (!inner) return;
+    parts.push(blockTags.has(tag) ? `\n${inner}\n` : ` ${inner} `);
+  });
+
+  return cleanText(parts.join(''));
+}
+
 function extractMainText($) {
   $(
     'script, style, noscript, iframe, svg, canvas, nav, footer, header, aside, form, button'
@@ -52,7 +95,7 @@ function extractMainText($) {
   for (const selector of candidates) {
     const node = $(selector).first();
     if (!node.length) continue;
-    const text = cleanText(node.text());
+    const text = nodeText($, node);
     if (text.length > best.length) best = text;
   }
 
