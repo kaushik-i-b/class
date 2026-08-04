@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: cycle-gtm-os
+    runtime: node
+    plan: free
+    region: oregon
+    branch: cursor/qwin-ai-web-scraper-d5a6
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: QWEN_MODEL
+        value: Qwen/Qwen2.5-7B-Instruct
+      - key: HF_TOKEN
+        sync: false

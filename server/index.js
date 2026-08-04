@@ -645,14 +645,14 @@ app.post('/api/preview-template', (req, res) => {
 
 if (isProd) {
   const distDir = path.join(rootDir, 'dist');
-  app.use(express.static(distDir));
-  app.get('*', (_req, res) => {
+  app.use(express.static(distDir, { index: false, maxAge: '1h' }));
+  app.get(/^(?!\/api).*/, (_req, res) => {
     res.sendFile(path.join(distDir, 'index.html'));
   });
 }
 
-app.listen(PORT, () => {
-  console.log(`Cycle GTM OS listening on http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Cycle GTM OS listening on http://0.0.0.0:${PORT}`);
 });
 
 function summarize(db) {

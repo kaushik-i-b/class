@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Cycle — GTM Engineering OS with enrichment, heat scoring, outreach, and sprint analytics (Qwen-powered)",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "concurrently -k \"npm:dev:server\" \"npm:dev:client\"",
     "dev:client": "vite",
@@ -14,16 +17,16 @@
     "seed": "node -e \"import('./server/seed.js').then(m=>m.seedIfEmpty(true))\""
   },
   "dependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
     "cheerio": "^1.0.0",
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.30.1"
+    "react-router-dom": "^6.30.1",
+    "vite": "^6.0.7"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.3.4",
-    "concurrently": "^9.1.2",
-    "vite": "^6.0.7"
+    "concurrently": "^9.1.2"
   }
 }

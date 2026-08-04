@@ -23,7 +23,15 @@ Implements the GTM Engineering product brief **and** the technical requirements 
 
 **Intentionally stubbed for local MVP (integrate later):** live Salesforce/HubSpot CDC, Clearbit/ZoomInfo waterfall vendors, Outreach/Salesloft send APIs, learned ML scoring (step 7 in build sequencing).
 
-## Run
+## Deploy (Render)
+
+One-click Blueprint:
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://dashboard.render.com/blueprint/new?repo=https://github.com/kaushik-i-b/class&branch=cursor/qwin-ai-web-scraper-d5a6)
+
+Or follow [DEPLOY_RENDER.md](./DEPLOY_RENDER.md).
+
+## Run locally
 
 ```bash
 npm install
