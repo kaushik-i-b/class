@@ -1,71 +1,59 @@
-# Classroom
-An electron app similar to Google Classroom.
+# Qwin — AI Web Scraper
 
+React webpage that scrapes public sites and analyzes the extracted content with the **Qwen** model via Hugging Face Inference Providers.
 
-### Development
+## Features
 
-- Clone Repository
-```
-git clone https://github.com/kaushik-i-b/class.git
-cd classroom
-```
+- Paste any `http(s)` URL and scrape readable page text
+- Extract title, description, word count, and outbound links
+- Ask **Qwen** to summarize, list key points, extract structured data, or answer questions grounded in the page
+- Optional browser-stored Hugging Face token, or server-side `HF_TOKEN`
 
-- Install Dependencies
-```
+## Stack
+
+- **Frontend:** React + Vite
+- **Backend:** Express scraper (`cheerio`) + Qwen chat completions proxy
+- **Model:** `Qwen/Qwen2.5-7B-Instruct` (configurable)
+
+## Setup
+
+```bash
 npm install
 ```
 
-- Set Up Firebase
-	- Create a firebase project from firebase console.
-	- Create a `.env` file at the root with following data.
-	```
-	REACT_APP_FIREBASE_API_KEY=<Your_Firebase_API_Key>
-	REACT_APP_FIREBASE_AUTH_DOMAIN=<Your_Firebase_Auth_Domain>
-	REACT_APP_FIREBASE_DATABASE_URL=<Your_Firebase_Database_URL>
-	REACT_APP_FIREBASE_PROJECT_ID=<Your_Firebase_Project_ID>
-	REACT_APP_FIREBASE_STORAGE_BUCKET=<Your_Firebase_Storage_Bucket>
-	REACT_APP_FIREBASE_MESSAGING_SENDER_ID=<Your_Firebase_Messaging_Sender_ID>
-	```
-	Note: You must create custom environment variables beginning with `REACT_APP_`. Visit [here](https://github.com/facebook/create-react-app/blob/master/packages/react-scripts/template/README.md#adding-development-environment-variables-in-env) for more information.
+Create a `.env` file (optional):
 
-- Run
+```bash
+cp .env.example .env
 ```
+
+Set `HF_TOKEN` to a Hugging Face token with Inference Providers permission, or paste a token in the in-app Settings panel.
+
+## Run
+
+Development (API on `:8787`, Vite on `:5173` with proxy):
+
+```bash
+npm run dev
+```
+
+Production:
+
+```bash
+npm run build
 npm start
 ```
-------------------------------------------------------------------
 
-To prevent the browser from opening set `BROWSER=none` in the `.env` file.
+Open `http://localhost:5173` in development, or `http://localhost:8787` after building.
 
-## Screenshots
+## API
 
-Sign-In / Sign-Up Page
+- `POST /api/scrape` `{ "url": "https://example.com" }`
+- `POST /api/analyze` `{ "page": {...}, "mode": "summarize|keypoints|extract|qa", "question": "..." }`
+- `GET /api/health`
 
-![Main Page](./screenshots/Screenshot-1.JPG)
+## Notes
 
-Subscribed Subjects
-
-![Subscribed Subjects](./screenshots/Screenshot-2.JPG)
-
-Lecture Notes and References (Teacher's View)
-
-![Lecture Notes and References](./screenshots/Screenshot-3.JPG)
-
-Announcements Page (Student's View)
-
-![Announcements Page](./screenshots/Screenshot-4.JPG)
-
-Subject's Home Page (Student's View)
-
-![Subject's Home Page](./screenshots/Screenshot-5.JPG)
-
-Assignment Page (Student's View)
-
-![Assignment Page](./screenshots/Screenshot-6.JPG)
-
-Discussion Forum
-
-![Discussion](./screenshots/Screenshot-7.JPG)
-
-Assignment Page (Teacher's View)
-
-![Assigment](./screenshots/Screenshot-8.JPG)
+- Scraping respects a short timeout and only accepts HTML responses.
+- Analysis requires a Hugging Face token (server env or Settings).
+- Change the model with `QWEN_MODEL` (OpenAI-compatible router id).
